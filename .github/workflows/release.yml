@@ -29,7 +29,7 @@ jobs:
       - name: Build the zip
         run: |
           mkdir -p build/cigalpay-for-woocommerce
-          rsync -a --exclude .git --exclude .github --exclude build --exclude README.md ./ build/cigalpay-for-woocommerce/
+          rsync -a --exclude .git --exclude .github --exclude .wordpress-org --exclude build --exclude README.md ./ build/cigalpay-for-woocommerce/
           cd build && zip -qr cigalpay-for-woocommerce.zip cigalpay-for-woocommerce
           unzip -l cigalpay-for-woocommerce.zip
 
