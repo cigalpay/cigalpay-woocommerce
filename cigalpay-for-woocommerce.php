@@ -3,7 +3,7 @@
  * Plugin Name:          CigalPay for WooCommerce
  * Plugin URI:           https://cigalpay.com/developers
  * Description:          Accept crypto payments (Bitcoin, USDT, Ethereum, Solana and more) in your WooCommerce store. Prices stay in USD or EUR; customers pick the coin on the CigalPay checkout.
- * Version:              1.0.0
+ * Version:              1.1.0
  * Author:               CigalPay
  * Author URI:           https://cigalpay.com
  * License:              MIT
@@ -18,7 +18,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'CIGALPAY_WC_VERSION', '1.0.0' );
+define( 'CIGALPAY_WC_VERSION', '1.1.0' );
 define( 'CIGALPAY_WC_FILE', __FILE__ );
 define( 'CIGALPAY_WC_URL', plugin_dir_url( __FILE__ ) );
 define( 'CIGALPAY_WC_DIR', plugin_dir_path( __FILE__ ) );

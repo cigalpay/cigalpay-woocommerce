@@ -22,9 +22,9 @@ Official WooCommerce plugin for [CigalPay](https://cigalpay.com): accept crypto 
 
 ## Set up
 
-1. In your CigalPay dashboard, open **Settings → API credentials** and copy your **Account ID** and your **notification signing secret**.
+1. In your CigalPay dashboard, open **Settings → API credentials** and copy your **Account ID**, your **notification signing secret** and, to refund orders in crypto, your **API key**.
 2. In WordPress, open **WooCommerce → Settings → Payments → CigalPay**.
-3. Paste both values, check **Enable** and save.
+3. Paste the values, check **Enable** and save.
 
 You can also change the title and description customers see at checkout.
 
@@ -46,6 +46,16 @@ A payment made in another coin and converted automatically is marked paid the sa
 
 If a customer pays twice, the order is paid once and the second payment is recorded in a note, so you can refund it.
 
+## Refunds
+
+On the order page, click **Refund**, enter the amount and click **Refund via CigalPay**:
+
+1. The amount is converted into the coin the customer paid, at the payment's rate, so they get back the same share of what they sent.
+2. It comes out of your CigalPay balance in that coin, with the network fee.
+3. The customer gets an email with a link to enter the address to refund. CigalPay reviews it and sends the coin.
+
+The order notes show the refund and the customer's link. If CigalPay refuses it, for example when the balance is too low, WooCommerce shows the reason and no refund is recorded. A payment forwarded to your own wallet isn't on your CigalPay balance: refund it from that wallet. CigalPay's fee on the payment is not refunded.
+
 ## Security
 
 Every notification is checked before it touches an order:
@@ -61,13 +71,13 @@ Errors are logged in **WooCommerce → Status → Logs**, source `cigalpay`. Tur
 ## FAQ
 
 **Can I refund from WooCommerce?**
-Not yet. Send crypto refunds from your CigalPay dashboard or your wallet.
+Yes, see [Refunds](#refunds). Add your API key in the settings first.
 
 **My store isn't in USD or EUR.**
 CigalPay is hidden at checkout, and the settings page shows a notice.
 
 **What does the plugin send to CigalPay?**
-The order total and currency, the order number, the store name, the return and notification addresses, and the customer's language. No customer names, emails or addresses.
+The order total and currency, the order number, the store name, the return and notification addresses, and the customer's language. No customer names, emails or addresses. When you refund an order, the customer's billing email, so CigalPay can send them the refund link.
 
 ## For developers
 

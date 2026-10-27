@@ -11,17 +11,18 @@ class WC_Gateway_CigalPay extends WC_Payment_Gateway {
 	const CURRENCIES = array( 'USD', 'EUR' );
 	const LANGS      = array( 'en', 'fr', 'es', 'de' );
 
-	/** Order meta: checkouts created for the order (one per attempt), the latest link, payment statuses already handled. */
+	/** Order meta: checkouts created for the order (one per attempt), the latest link, payment statuses already handled, CigalPay refunds. */
 	const META_CHECKOUTS = '_cigalpay_checkout_ids';
 	const META_LINK      = '_cigalpay_checkout_url';
 	const META_SEEN      = '_cigalpay_seen';
+	const META_REFUNDS   = '_cigalpay_refund_ids';
 
 	public function __construct() {
 		$this->id                 = 'cigalpay';
 		$this->has_fields         = false;
 		$this->method_title       = 'CigalPay';
 		$this->method_description = __( 'Accept Bitcoin, USDT, Ethereum, Solana and more. Customers pay on the CigalPay checkout; the order is marked paid once the payment is confirmed on the network.', 'cigalpay-for-woocommerce' );
-		$this->supports           = array( 'products' );
+		$this->supports           = array( 'products', 'refunds' );
 
 		$this->init_form_fields();
 		$this->init_settings();
@@ -67,6 +68,12 @@ class WC_Gateway_CigalPay extends WC_Payment_Gateway {
 				'title'       => __( 'Notification signing secret', 'cigalpay-for-woocommerce' ),
 				'type'        => 'password',
 				'description' => __( 'Same page. Used to check that payment notifications really come from CigalPay.', 'cigalpay-for-woocommerce' ),
+				'default'     => '',
+			),
+			'api_key'     => array(
+				'title'       => __( 'API key', 'cigalpay-for-woocommerce' ),
+				'type'        => 'password',
+				'description' => __( 'Same page. Only needed to refund orders in crypto from WooCommerce.', 'cigalpay-for-woocommerce' ),
 				'default'     => '',
 			),
 			'debug'       => array(
@@ -270,6 +277,62 @@ class WC_Gateway_CigalPay extends WC_Payment_Gateway {
 		}
 		$order->add_order_note( $note );
 		$order->payment_complete( $payment_id );
+	}
+
+	/** The "Refund via CigalPay" button: for paid orders, once the API key is set. */
+	public function can_refund_order( $order ) {
+		return $order && $order->get_transaction_id() && '' !== trim( $this->get_option( 'api_key' ) );
+	}
+
+	/**
+	 * Refunds in the coin the customer paid, from the CigalPay balance. The
+	 * customer gets an email with a link to enter their address; CigalPay
+	 * sends the coin once the refund is reviewed. A WP_Error cancels the
+	 * WooCommerce refund and shows CigalPay's reason.
+	 *
+	 * @param int        $order_id
+	 * @param float|null $amount in the order currency
+	 * @param string     $reason
+	 * @return bool|WP_Error
+	 */
+	public function process_refund( $order_id, $amount = null, $reason = '' ) {
+		$order = wc_get_order( $order_id );
+		if ( ! $order || ! $this->can_refund_order( $order ) ) {
+			return new WP_Error( 'cigalpay_refund', __( 'Add your CigalPay API key in the plugin settings to refund in crypto.', 'cigalpay-for-woocommerce' ) );
+		}
+		if ( null === $amount || (float) $amount <= 0 ) {
+			return new WP_Error( 'cigalpay_refund', __( 'Enter the amount to refund.', 'cigalpay-for-woocommerce' ) );
+		}
+
+		$body = array(
+			'paymentId'      => (string) $order->get_transaction_id(),
+			'checkoutAmount' => round( (float) $amount, 2 ),
+			'reason'         => function_exists( 'mb_substr' ) ? mb_substr( (string) $reason, 0, 200 ) : substr( (string) $reason, 0, 200 ),
+		);
+		if ( is_email( $order->get_billing_email() ) ) {
+			$body['customerEmail'] = $order->get_billing_email();
+		}
+		$res = CigalPay_WC_API::create_refund( trim( $this->get_option( 'api_key' ) ), $body );
+		if ( is_wp_error( $res ) ) {
+			$this->log( 'error', sprintf( 'Order %d: refund of %s refused: %s', $order->get_id(), $amount, $res->get_error_message() ) );
+			/* translators: %s: CigalPay's reason */
+			return new WP_Error( 'cigalpay_refund', sprintf( __( 'CigalPay: %s', 'cigalpay-for-woocommerce' ), $res->get_error_message() ) );
+		}
+
+		$ids   = $this->meta_list( $order, self::META_REFUNDS );
+		$ids[] = (string) $res['refund']['id'];
+		$order->update_meta_data( self::META_REFUNDS, $ids );
+		$order->save();
+		$order->add_order_note(
+			sprintf(
+				/* translators: 1: amount in the order currency, 2: amount and coin, 3: the customer's link */
+				__( 'CigalPay: refund of %1$s started (%2$s). The customer got an email to enter their address: %3$s. CigalPay sends it once reviewed.', 'cigalpay-for-woocommerce' ),
+				wc_price( $amount, array( 'currency' => $order->get_currency() ) ),
+				$this->format_coin( isset( $res['refund']['amount'] ) ? $res['refund']['amount'] : '', array( 'currency' => isset( $res['refund']['currency'] ) ? $res['refund']['currency'] : '' ) ),
+				isset( $res['link'] ) ? esc_url( $res['link'] ) : ''
+			)
+		);
+		return true;
 	}
 
 	public function thankyou_page( $order_id ) {
